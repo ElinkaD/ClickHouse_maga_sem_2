@@ -23,7 +23,7 @@ make setup
 make services
 ```
 
-`make run` запускает один контейнер ClickHouse и Python HTTP-сервис. При первом запуске с пустой папкой `volume/` контейнер создаёт базу `energosbyt` и выполняет все файлы `sql/ddl/*.sql`. `make setup` повторно создаёт недостающие таблицы, генерирует CSV и загружает их. Данные ClickHouse сохраняются в локальной папке `volume/`.
+`make run` запускает один контейнер ClickHouse и Python HTTP-сервис. `docker-compose.yml` подключает описание сервисов из `compose.services.yml` с параметрами из `.env.local`, поэтому команды `docker compose logs` и `docker compose down -v` также работают без флага `--env-file`. При первом запуске с пустой папкой `volume/` контейнер создаёт базу `energosbyt` и выполняет все файлы `sql/ddl/*.sql`. `make setup` повторно создаёт недостающие таблицы, генерирует CSV и загружает их. Данные ClickHouse сохраняются в локальной папке `volume/`.
 
 Команды по отдельности:
 
