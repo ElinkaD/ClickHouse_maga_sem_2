@@ -1,0 +1,5 @@
+# The course workflow calls `docker compose logs` and `down` without --env-file.
+# Include gives those commands the same .env.local values as `make run`.
+include:
+  - path: ./compose.services.yml
+    env_file: ./.env.local

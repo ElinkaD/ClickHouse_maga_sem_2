@@ -1,0 +1,797 @@
+{
+  "info": {
+    "name": "Energosbyt Lab 1 — smoke and SCD",
+    "description": "Запустите make run && make setup, затем Run collection. Запросы идут по порядку; они меняют пользователя, показание и установку счётчика. Для чистого повторения выполните make setup.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "realty_id",
+      "value": "1"
+    },
+    {
+      "key": "user_id",
+      "value": "1"
+    },
+    {
+      "key": "old_gauge_id",
+      "value": "1"
+    },
+    {
+      "key": "new_gauge_id",
+      "value": "2"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Основной сценарий",
+      "item": [
+        {
+          "name": "Ping",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/ping"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Пустой ответ\", () => pm.expect(pm.response.text()).to.equal(\"\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "Собственник: до изменений",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/users/{{user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const user = pm.response.json();",
+                  "pm.test(\"ID собственника\", () => pm.expect(Number(user.id) === Number(pm.collectionVariables.get(\"user_id\"))).to.be.true);",
+                  "pm.test(\"Поля собственника\", () => [\"fio\",\"phone\",\"phone_prev\"].forEach(k => pm.expect(user).to.have.property(k)));",
+                  "pm.collectionVariables.set(\"phone_before\", user.phone);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"fio\": \"Житель 1 Учебный\",\n  \"phone\": \"+79000000001\",\n  \"phone_prev\": \"\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "SCD 1: сменить ФИО",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"fio\":\"Петрова Анна Сергеевна\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/users/{{user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+                  "pm.test(\"Пустой ответ\", () => pm.expect(pm.response.text()).to.equal(\"\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "No Content",
+              "code": 204,
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "SCD 1: проверить ФИО",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/users/{{user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const user = pm.response.json();",
+                  "pm.test(\"Новое ФИО\", () => pm.expect(user.fio === \"Петрова Анна Сергеевна\").to.be.true);",
+                  "pm.test(\"Старого ФИО в ответе нет\", () => pm.expect(user.fio).not.to.equal(\"Житель 1 Учебный\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"fio\": \"Петрова Анна Сергеевна\",\n  \"phone\": \"+79000000001\",\n  \"phone_prev\": \"\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "SCD 3: первый новый телефон",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"phone\":\"+79111111111\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/users/{{user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "No Content",
+              "code": 204,
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "SCD 3: проверить предыдущий телефон",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/users/{{user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const user = pm.response.json();",
+                  "pm.test(\"Новый телефон\", () => pm.expect(user.phone === \"+79111111111\").to.be.true);",
+                  "pm.test(\"Предыдущий телефон\", () => pm.expect(user.phone_prev === pm.collectionVariables.get(\"phone_before\")).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"fio\": \"Петрова Анна Сергеевна\",\n  \"phone\": \"+79111111111\",\n  \"phone_prev\": \"+79000000001\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "SCD 3: второй новый телефон",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"phone\":\"+79222222222\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/users/{{user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "No Content",
+              "code": 204,
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "SCD 3: проверить две смены",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/users/{{user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const user = pm.response.json();",
+                  "pm.test(\"Последний и предпоследний телефоны\", () => pm.expect(user.phone === \"+79222222222\" && user.phone_prev === \"+79111111111\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"fio\": \"Петрова Анна Сергеевна\",\n  \"phone\": \"+79222222222\",\n  \"phone_prev\": \"+79111111111\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Недвижимость",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/realty/{{realty_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const realty = pm.response.json();",
+                  "pm.test(\"ID объекта\", () => pm.expect(Number(realty.id) === Number(pm.collectionVariables.get(\"realty_id\"))).to.be.true);",
+                  "pm.test(\"Поля объекта\", () => [\"address\",\"square\",\"type\",\"number\",\"rooms\",\"floor\",\"porch\"].forEach(k => pm.expect(realty).to.have.property(k)));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"address\": \"г. Санкт-Петербург, ул. Учебная, д. 1\",\n  \"square\": 31,\n  \"type\": \"flat\",\n  \"number\": \"1\",\n  \"rooms\": 2,\n  \"floor\": 2,\n  \"porch\": 2\n}"
+            }
+          ]
+        },
+        {
+          "name": "SCD 2: тариф до границы",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/tariffs?date=2025-10-31"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const tariff = pm.response.json();",
+                  "pm.test(\"Старая версия тарифа\", () => pm.expect(tariff.price_day_kwph === 500 && tariff.valid_to === \"2025-11-01 00:00:00\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"name\": \"День–Ночь\",\n  \"price_day_kwph\": 500,\n  \"price_night_kwph\": 250,\n  \"valid_from\": \"2023-11-01 00:00:00\",\n  \"valid_to\": \"2025-11-01 00:00:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "SCD 2: тариф с границы",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/tariffs?date=2025-11-01"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const tariff = pm.response.json();",
+                  "pm.test(\"Новая версия тарифа\", () => pm.expect(tariff.price_day_kwph === 620 && tariff.valid_from === \"2025-11-01 00:00:00\").to.be.true);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"id\": 1,\n  \"name\": \"День–Ночь\",\n  \"price_day_kwph\": 620,\n  \"price_night_kwph\": 310,\n  \"valid_from\": \"2025-11-01 00:00:00\",\n  \"valid_to\": \"2099-01-01 00:00:00\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Счета: первая страница",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/realty/{{realty_id}}/invoices?limit=1&offset=0"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const result = pm.response.json();",
+                  "pm.test(\"Всего 36, на странице 1\", () => pm.expect(result.count === 36 && result.invoices.length === 1).to.be.true);",
+                  "pm.collectionVariables.set(\"first_invoice_date\", result.invoices[0].created_at);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"invoices\": [\n    {\n      \"tariff_id\": 1,\n      \"gauge_id\": 1,\n      \"day_kw\": 198,\n      \"night_kw\": 97,\n      \"price\": 152830,\n      \"deadline\": \"2026-11-10\",\n      \"created_at\": \"2026-10-31 14:00:00\"\n    }\n  ],\n  \"count\": 36\n}"
+            }
+          ]
+        },
+        {
+          "name": "Счета: вторая страница",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/realty/{{realty_id}}/invoices?limit=1&offset=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const result = pm.response.json();",
+                  "pm.test(\"Пагинация\", () => pm.expect(result.count === 36 && result.invoices.length === 1).to.be.true);",
+                  "pm.test(\"Страницы разные\", () => pm.expect(result.invoices[0].created_at !== pm.collectionVariables.get(\"first_invoice_date\")).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"invoices\": [\n    {\n      \"tariff_id\": 1,\n      \"gauge_id\": 1,\n      \"day_kw\": 198,\n      \"night_kw\": 94,\n      \"price\": 151900,\n      \"deadline\": \"2026-10-10\",\n      \"created_at\": \"2026-09-30 14:00:00\"\n    }\n  ],\n  \"count\": 36\n}"
+            }
+          ]
+        },
+        {
+          "name": "Корректировка показания",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user_id\":{{user_id}},\"gauge_id\":{{old_gauge_id}},\"tariff_id\":1,\"reading_date\":\"2026-10-01\",\"day_kw\":1250,\"night_kw\":300}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/realty/{{realty_id}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "Created",
+              "code": 201,
+              "body": ""
+            }
+          ]
+        },
+        {
+          "name": "Показание после корректировки",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/realty/{{realty_id}}/readings?date_from=2026-10-01&date_to=2026-10-01"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "const result = pm.response.json();",
+                  "pm.test(\"Одно актуальное показание\", () => pm.expect(result.count === 1 && result.readings.length === 1).to.be.true);",
+                  "pm.test(\"Значения корректировки\", () => pm.expect(result.readings[0].day_kw === 1250 && result.readings[0].night_kw === 300).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"readings\": [\n    {\n      \"reading_date\": \"2026-10-01\",\n      \"user_id\": 1,\n      \"tariff_id\": 1,\n      \"gauge_id\": 1,\n      \"day_kw\": 1250,\n      \"night_kw\": 300\n    }\n  ],\n  \"count\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Замена счётчика",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"gauge_id\":{{new_gauge_id}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/realty/{{realty_id}}/gauges",
+            "description": "Проверка активной строки выполняется SQL из README, так как в ТЗ нет GET для привязок."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "Created",
+              "code": 201,
+              "body": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "02 Ошибки контракта",
+      "item": [
+        {
+          "name": "Несуществующий собственник",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/users/999999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Ошибка в message\", () => pm.expect(pm.response.json()).to.have.property(\"message\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"message\": \"Not found\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "PATCH без полей",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/users/{{user_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Сообщение о fio\", () => pm.expect(pm.response.json().message).to.include(\"fio\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"message\": \"invalid \\\"fio\\\" field\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Показание с отрицательным day_kw",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"user_id\":{{user_id}},\"gauge_id\":{{old_gauge_id}},\"tariff_id\":1,\"reading_date\":\"2026-10-01\",\"day_kw\":-1,\"night_kw\":300}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/realty/{{realty_id}}/readings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Сообщение о day_kw\", () => pm.expect(pm.response.json().message).to.include(\"day_kw\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"message\": \"invalid \\\"day_kw\\\" field\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Период с обратными датами",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/realty/{{realty_id}}/readings?date_from=2026-10-31&date_to=2026-10-01"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Сообщение о date_from\", () => pm.expect(pm.response.json().message).to.include(\"date_from\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"message\": \"invalid \\\"date_from\\\" parameter\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Отрицательный limit",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/realty/{{realty_id}}/invoices?limit=-1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Сообщение о limit\", () => pm.expect(pm.response.json().message).to.include(\"limit\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"message\": \"invalid \\\"limit\\\" parameter\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Тариф без даты",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/tariffs"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Сообщение о date\", () => pm.expect(pm.response.json().message).to.include(\"date\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"message\": \"invalid \\\"date\\\" parameter\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Счётчик без gauge_id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{base_url}}/realty/{{realty_id}}/gauges"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Сообщение о gauge_id\", () => pm.expect(pm.response.json().message).to.include(\"gauge_id\"));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Пример ответа после make setup",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"message\": \"invalid \\\"gauge_id\\\" field\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
