@@ -1,0 +1,8 @@
+.git
+.github
+course
+.env.local
+data
+volume
+__pycache__
+*.pyc
